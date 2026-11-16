@@ -1,0 +1,52 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/ruff-action@278981a28ce3188b1e39527901f38254bf3aac89 # v4.1.0
+        with:
+          version: "0.17.5"
+      - run: ruff format --check --diff
+
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      matrix:
+        python: ["3.11", "3.12", "3.13", "3.14", "3.15"]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          version: "0.13.8"
+          python-version: ${{ matrix.python }}
+      - run: uv build --no-sources
+      - name: Test runtime and typing
+        shell: bash
+        run: |
+          test_dir=$(mktemp -d)
+          cp tests/typing_probe.py "$test_dir"
+
+          # Type-check the file without the ty-extensions runtime support
+          uv run --locked --only-dev ty check --project "$test_dir"
+
+          # Type-check the file with the ty-extensions runtime support
+          uv run --locked --only-dev --with dist/*.whl ty check --project "$test_dir"
+
+          # Run the runtime tests
+          uv run --locked --only-dev --with dist/*.whl -m unittest

@@ -1,0 +1,20 @@
+[project]
+name = "ty-extensions"
+version = "0.2.0"
+description = "Runtime support for experimental type system features supported by ty"
+authors = [{ name = "Astral Software Inc.", email = "hey@astral.sh" }]
+readme = "README.md"
+requires-python = ">=3.11"
+license = "MIT"
+license-files = ["LICENSE"]
+
+[project.urls]
+Documentation = "https://docs.astral.sh/ty/"
+Repository = "https://github.com/astral-sh/ty-extensions"
+
+[dependency-groups]
+dev = ["ty==0.0.104"]
+
+[build-system]
+requires = ["uv_build>=0.12.3,<0.14"]
+build-backend = "uv_build"
