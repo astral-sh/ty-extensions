@@ -177,7 +177,26 @@ At runtime, `AlwaysFalsy` is an alias for `typing.Any`.
 """
 
 JustFloat = float
+"""
+`JustFloat` represents an instance of the class `float`. This can be used to circumvent
+the [type-system special case][numeric] that lets `float` annotations accept values of
+type `int` as well.
+
+At runtime, `JustFloat` is an alias for the built-in `float` class.
+
+[numeric]: https://typing.python.org/en/latest/spec/special-types.html#special-cases-for-float-and-complex
+"""
+
 JustComplex = complex
+"""
+`JustComplex` represents an instance of the class `complex`. This can be used to circumvent
+the [type-system special case][numeric] that lets `complex` annotations accept values of
+type `float` or `int` as well.
+
+At runtime, `JustComplex` is an alias for the built-in `complex` class.
+
+[numeric]: https://typing.python.org/en/latest/spec/special-types.html#special-cases-for-float-and-complex
+"""
 
 
 @_runtime_checkable
