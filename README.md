@@ -27,9 +27,10 @@ class Versioned(Protocol):
 
 
 def output_as_json(obj: Intersection[Serializable, Versioned]) -> str:
-    return json.dumps(
-        {"data": json.loads(obj.serialize_json()), "version": obj.version}
-    )
+    return json.dumps({
+        "data": json.loads(obj.serialize_json()),
+        "version": obj.version,
+    })
 ```
 
 [ty](https://docs.astral.sh/ty/) checks these symbols using its bundled `ty_extensions` stubs,
