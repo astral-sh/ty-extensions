@@ -101,7 +101,10 @@ def Intersection(self: _TySpecialForm, parameters: object) -> _GenericAlias:
     s: Intersection[P, Q] = S()
     ```
 
-    In type expressions, ty supports and displays the experimental spelling `T1 & T2`.
+    In type expressions, ty supports the experimental spelling `T1 & T2`, and also uses this syntax
+    when displaying intersection types. While the experimental syntax will raise an exception in
+    runtime contexts or in cases where an annotation expression could be evaluated, however,
+    `Intersection[]` can be used in arbitrary contexts if the `ty-extensions` package is installed.
     """
     if not isinstance(parameters, tuple):
         parameters = (parameters,)
@@ -115,7 +118,10 @@ def Not(self: _TySpecialForm, parameters: object) -> _GenericAlias:
     """
     `Not[T]`, also spelled as `~T`, represents the set of all objects that do not inhabit the type `T`.
 
-    In type expressions, ty supports and displays the experimental spelling `~T`.
+    In type expressions, ty supports the experimental spelling `~T`, and also uses it when displaying
+    negation types. While the experimental syntax will raise an exception in runtime contexts or in
+    cases where an annotation expression could be evaluated, however, `Not[]` can be used in arbitrary
+    contexts if the `ty-extensions` package is installed.
     """
     item = _type_check(parameters, f"{self} accepts only a single type.")
     return _GenericAlias(self, (item,))
@@ -229,23 +235,23 @@ def AlwaysFalsy(self: _TySpecialForm, parameters: object) -> _Never:
 JustFloat = float
 """
 `JustFloat` represents an instance of the class `float`. This can be used to circumvent
-the [type-system special case][numeric] that lets `float` annotations accept values of
+the [type-system special case] that lets `float` annotations accept values of
 type `int` as well.
 
 At runtime, `JustFloat` is an alias for the built-in `float` class.
 
-[numeric]: https://typing.python.org/en/latest/spec/special-types.html#special-cases-for-float-and-complex
+[type-system special case]: https://typing.python.org/en/latest/spec/special-types.html#special-cases-for-float-and-complex
 """
 
 JustComplex = complex
 """
 `JustComplex` represents an instance of the class `complex`. This can be used to circumvent
-the [type-system special case][numeric] that lets `complex` annotations accept values of
+the [type-system special case] that lets `complex` annotations accept values of
 type `float` or `int` as well.
 
 At runtime, `JustComplex` is an alias for the built-in `complex` class.
 
-[numeric]: https://typing.python.org/en/latest/spec/special-types.html#special-cases-for-float-and-complex
+[type-system special case]: https://typing.python.org/en/latest/spec/special-types.html#special-cases-for-float-and-complex
 """
 
 
