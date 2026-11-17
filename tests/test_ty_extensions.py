@@ -204,6 +204,11 @@ class TyExtensionsTests(unittest.TestCase):
                         pass
 
                 with self.assertRaises(TypeError):
+
+                    class InvalidImplementationSubclass(type(special_form)):
+                        pass
+
+                with self.assertRaises(TypeError):
                     isinstance(1, special_form)
                 with self.assertRaises(TypeError):
                     issubclass(int, special_form)
