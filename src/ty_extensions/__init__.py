@@ -31,8 +31,9 @@ def static_assert(condition: object, msg: _LiteralString | None = None) -> None:
 
         static_assert(sys.version_info[:2] >= (3, 13), "Python 3.13 or higher is required")
 
-    At runtime, this works like a normal assertion statement."""
-    assert condition, msg
+    At runtime, a false condition raises AssertionError (even with Python optimization enabled)."""
+    if not condition:
+        raise AssertionError(msg)
 
 
 # Like typing_extensions, subclass typing._SpecialForm to customize the repr.
