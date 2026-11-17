@@ -1,7 +1,6 @@
 import importlib.util
 import unittest
-from collections import namedtuple
-from typing import Any, NamedTuple, get_args, get_origin, get_type_hints
+from typing import Any, get_args, get_origin, get_type_hints
 
 import ty_extensions
 from ty_extensions import (
@@ -11,7 +10,6 @@ from ty_extensions import (
     Intersection,
     JustComplex,
     JustFloat,
-    NamedTupleLike,
     Not,
     Top,
     static_assert,
@@ -104,17 +102,6 @@ class TyExtensionsTests(unittest.TestCase):
     def test_aliases(self) -> None:
         self.assertIs(JustFloat, float)
         self.assertIs(JustComplex, complex)
-
-    def test_named_tuple_like_runtime_test(self) -> None:
-        class Point(NamedTuple):
-            x: int
-            y: int
-
-        Coordinate = namedtuple("Coordinate", ["x", "y"])
-
-        self.assertTrue(isinstance(Point(1, 2), NamedTupleLike))
-        self.assertTrue(isinstance(Coordinate(1, 2), NamedTupleLike))
-        self.assertFalse(isinstance((1, 2), NamedTupleLike))
 
     def test_assertion(self) -> None:
         self.assertIsNone(static_assert(True))

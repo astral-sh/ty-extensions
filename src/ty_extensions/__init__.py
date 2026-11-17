@@ -8,7 +8,6 @@ from typing import LiteralString as _LiteralString
 from typing import Protocol as _Protocol
 from typing import Self as _Self
 from typing import _GenericAlias, _SpecialForm, _type_check
-from typing import runtime_checkable as _runtime_checkable
 
 __all__ = [
     "AlwaysFalsy",
@@ -209,13 +208,10 @@ At runtime, `JustComplex` is an alias for the built-in `complex` class.
 """
 
 
-@_runtime_checkable
 class NamedTupleLike(_Protocol):
     """
     A protocol describing an interface that should be satisfied by all named tuples
     created using `typing.NamedTuple` or `collections.namedtuple`.
-
-    At runtime, `isinstance(value, NamedTupleLike)` checks for the required members.
     """
 
     _fields: _ClassVar[tuple[_Any, ...]]
