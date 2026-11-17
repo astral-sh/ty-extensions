@@ -90,6 +90,10 @@ class _IntersectionGenericAlias(_GenericAlias, _root=True):
         # Specialization and forward-reference resolution can introduce nested intersections
         # or duplicate operands. _GenericAlias.copy_with rebuilds the alias through this
         # constructor, so normalize the operands here.
+        #
+        # The flattening and deduplication logic is adapted from the helpers used by
+        # typing.Literal in CPython.
+        # https://github.com/python/cpython/blob/v3.15.1/Lib/typing.py#L366-L388
         flattened: list[object] = []
         for arg in args:
             if isinstance(arg, _IntersectionGenericAlias):
@@ -100,9 +104,7 @@ class _IntersectionGenericAlias(_GenericAlias, _root=True):
         # Use the fast dictionary path for the common case of all hashable operands.
         # If any operand is unhashable, deduplicate the full list using slower equality
         # scans. For example, Annotated[int, []] is unhashable because its metadata
-        # contains a list. Both paths keep the first occurrence of each operand, as
-        # does the _deduplicate helper used by typing.Literal in Python 3.15.
-        # https://github.com/python/cpython/blob/v3.15.1/Lib/typing.py#L366-L378
+        # contains a list. Both paths keep the first occurrence of each operand.
         try:
             unique_args = tuple(dict.fromkeys(flattened))
         except TypeError:

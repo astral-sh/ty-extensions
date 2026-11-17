@@ -19,12 +19,6 @@ from ty_extensions import (
     static_assert,
 )
 
-# Doctest discovers functions and classes defined in the module it scans. Register
-# the public docstrings here to include imported objects and special-form instances.
-__test__ = {
-    name: getattr(ty_extensions, name).__doc__ or "" for name in ty_extensions.__all__
-}
-
 _SPECIAL_FORMS = {
     "AlwaysFalsy": AlwaysFalsy,
     "AlwaysTruthy": AlwaysTruthy,
@@ -311,10 +305,21 @@ class TyExtensionsTests(unittest.TestCase):
 def load_tests(
     _loader: unittest.TestLoader, tests: unittest.TestSuite, _pattern: str | None
 ) -> unittest.TestSuite:
-    """Add the public docstring examples to the unittest suite on Python 3.12+.
+    """Test REPL examples in our docstrings as part of our unittest suite, using the doctest module.
 
-    The `Intersection` docstring includes a `type` statement.
+    The `Intersection` docstring includes a `type` statement,
+    so we can only do this on Python >=3.12.
     """
     if sys.version_info >= (3, 12):
         tests.addTests(doctest.DocTestSuite())
     return tests
+
+
+# By default, Python's doctest module collects REPL examples from all functions
+# and classes defined in the module under test. But we also want to test
+# REPL examples in docstrings for other objects in `ty_extensions`, such as
+# `ty_extensions.Intersection`, which is an instance of `_TySpecialForm`.
+# Customizing the `__test__` dictionary here allows us to do that:
+__test__ = {
+    name: getattr(ty_extensions, name).__doc__ or "" for name in ty_extensions.__all__
+}
