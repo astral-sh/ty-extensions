@@ -7,6 +7,7 @@ from typing import ClassVar as _ClassVar
 from typing import LiteralString as _LiteralString
 from typing import Protocol as _Protocol
 from typing import Self as _Self
+from typing import _GenericAlias, _SpecialForm, _type_check
 from typing import runtime_checkable as _runtime_checkable
 
 __all__ = [
@@ -34,12 +35,14 @@ def static_assert(condition: object, msg: _LiteralString | None = None) -> None:
     assert condition, msg
 
 
-class _RuntimeSpecialForm:
-    def __class_getitem__(cls, _argument: object, /) -> _Any:
-        return _Any
+# Like typing_extensions, subclass typing._SpecialForm to customize the repr.
+class _TySpecialForm(_SpecialForm, _root=True):
+    def __repr__(self) -> str:
+        return f"ty_extensions.{self.__name__}"
 
 
-class Intersection(_RuntimeSpecialForm):
+@_TySpecialForm
+def Intersection(self: _TySpecialForm, parameters: object) -> _GenericAlias:
     """
     `Intersection[T1, T2, ..., Tn]`, also spelled as `T1 & T2 & ... & Tn`, represents an intersection
     type: the set of all objects that inhabit all of the types `T1`, `T2`, ..., `Tn`.
@@ -60,22 +63,27 @@ class Intersection(_RuntimeSpecialForm):
     ```
 
     In type expressions, ty supports and displays the experimental spelling `T1 & T2`.
-    At runtime, `Intersection[T1, T2]` evaluates to `typing.Any`. Use the bracket form in
-    annotations or aliases that Python evaluates.
     """
+    if not isinstance(parameters, tuple):
+        parameters = (parameters,)
+    message = f"{self} arguments must be types."
+    items = tuple(_type_check(item, message) for item in parameters)
+    return _GenericAlias(self, items)
 
 
-class Not(_RuntimeSpecialForm):
+@_TySpecialForm
+def Not(self: _TySpecialForm, parameters: object) -> _GenericAlias:
     """
     `Not[T]`, also spelled as `~T`, represents the set of all objects that do not inhabit the type `T`.
 
     In type expressions, ty supports and displays the experimental spelling `~T`.
-    At runtime, `Not[T]` evaluates to `typing.Any`. Use the bracket form in
-    annotations or aliases that Python evaluates.
     """
+    item = _type_check(parameters, f"{self} accepts only a single type.")
+    return _GenericAlias(self, (item,))
 
 
-class Top(_RuntimeSpecialForm):
+@_TySpecialForm
+def Top(self: _TySpecialForm, parameters: object) -> _GenericAlias:
     """
     `Top[T]` represents the "top materialization" of `T`.
 
@@ -103,12 +111,13 @@ class Top(_RuntimeSpecialForm):
     [fully static]: https://typing.python.org/en/latest/spec/concepts.html#fully-static-types
     [gradual type]: https://typing.python.org/en/latest/spec/concepts.html#gradual-types
     [Any]: https://typing.python.org/en/latest/spec/special-types.html#any
-
-    At runtime, `Top[T]` evaluates to `typing.Any`.
     """
+    item = _type_check(parameters, f"{self} accepts only a single type.")
+    return _GenericAlias(self, (item,))
 
 
-class Bottom(_RuntimeSpecialForm):
+@_TySpecialForm
+def Bottom(self: _TySpecialForm, parameters: object) -> _GenericAlias:
     """
     `Bottom[T]` represents the "bottom materialization" of `T`.
 
@@ -137,9 +146,9 @@ class Bottom(_RuntimeSpecialForm):
     [gradual type]: https://typing.python.org/en/latest/spec/concepts.html#gradual-types
     [Never]: https://typing.python.org/en/latest/spec/special-types.html#never
     [Any]: https://typing.python.org/en/latest/spec/special-types.html#any
-
-    At runtime, `Bottom[T]` evaluates to `typing.Any`.
     """
+    item = _type_check(parameters, f"{self} accepts only a single type.")
+    return _GenericAlias(self, (item,))
 
 
 AlwaysTruthy = _Any

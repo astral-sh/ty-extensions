@@ -1,7 +1,7 @@
 import importlib.util
 import unittest
 from collections import namedtuple
-from typing import Any, NamedTuple, get_type_hints
+from typing import Any, NamedTuple, get_args, get_origin, get_type_hints
 
 import ty_extensions
 from ty_extensions import (
@@ -31,21 +31,75 @@ class TyExtensionsTests(unittest.TestCase):
         )
 
     def test_special_forms_can_be_evaluated_at_runtime(self) -> None:
-        class A: ...
-
-        class B: ...
-
         def annotated(
-            intersection: Intersection[A, B],
-            negation: Not[A],
+            intersection_empty: Intersection[()],
+            intersection_single: Intersection[int],
+            intersection: Intersection[int, bool],
+            intersection_stringified: Intersection["int", "bool"],
+            negation: Not[int],
             top: Top[list[Any]],
             bottom: Bottom[list[Any]],
-            truthy: AlwaysTruthy,
-            falsy: AlwaysFalsy,
+            always_truthy: AlwaysTruthy,
+            always_falsy: AlwaysFalsy,
         ) -> None:
             pass
 
-        get_type_hints(annotated)
+        hints = get_type_hints(annotated)
+
+        with self.subTest("Intersection[()]"):
+            self.assertIs(get_origin(hints["intersection_empty"]), Intersection)
+            self.assertEqual(get_args(hints["intersection_empty"]), ())
+            self.assertEqual(
+                repr(hints["intersection_empty"]), "ty_extensions.Intersection[()]"
+            )
+
+        with self.subTest("Intersection[int]"):
+            self.assertIs(get_origin(hints["intersection_single"]), Intersection)
+            self.assertEqual(get_args(hints["intersection_single"]), (int,))
+            self.assertEqual(
+                repr(hints["intersection_single"]), "ty_extensions.Intersection[int]"
+            )
+
+        with self.subTest("Intersection[int, bool]"):
+            self.assertIs(get_origin(hints["intersection"]), Intersection)
+            self.assertEqual(get_args(hints["intersection"]), (int, bool))
+            self.assertEqual(
+                repr(hints["intersection"]),
+                "ty_extensions.Intersection[int, bool]",
+            )
+
+        with self.subTest('Intersection["int", "bool"]'):
+            self.assertIs(get_origin(hints["intersection_stringified"]), Intersection)
+            self.assertEqual(get_args(hints["intersection_stringified"]), (int, bool))
+            self.assertEqual(
+                repr(hints["intersection_stringified"]),
+                "ty_extensions.Intersection[int, bool]",
+            )
+
+        with self.subTest("Not[int]"):
+            self.assertIs(get_origin(hints["negation"]), Not)
+            self.assertEqual(get_args(hints["negation"]), (int,))
+            self.assertEqual(repr(hints["negation"]), "ty_extensions.Not[int]")
+
+        with self.subTest("Top[list[Any]]"):
+            self.assertIs(get_origin(hints["top"]), Top)
+            self.assertEqual(get_args(hints["top"]), (list[Any],))
+            self.assertEqual(repr(hints["top"]), "ty_extensions.Top[list[typing.Any]]")
+
+        with self.subTest("Bottom[list[Any]]"):
+            self.assertIs(get_origin(hints["bottom"]), Bottom)
+            self.assertEqual(get_args(hints["bottom"]), (list[Any],))
+            self.assertEqual(
+                repr(hints["bottom"]), "ty_extensions.Bottom[list[typing.Any]]"
+            )
+
+    def test_single_argument_special_forms_reject_multiple_arguments(self) -> None:
+        for special_form in (Bottom, Not, Top):
+            with (
+                self.subTest(special_form=special_form),
+                self.assertRaisesRegex(TypeError, "single type"),
+            ):
+                special_form[int, str]
 
     def test_aliases(self) -> None:
         self.assertIs(JustFloat, float)
