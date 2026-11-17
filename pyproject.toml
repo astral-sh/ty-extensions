@@ -13,7 +13,7 @@ Documentation = "https://docs.astral.sh/ty/"
 Repository = "https://github.com/astral-sh/ty-extensions"
 
 [dependency-groups]
-dev = ["ty==0.0.104"]
+dev = ["ty==0.0.105"]
 
 [build-system]
 requires = ["uv_build>=0.12.3,<0.14"]

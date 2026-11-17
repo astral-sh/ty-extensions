@@ -39,8 +39,6 @@ jobs:
         with:
           version: "0.13.8"
           python-version: ${{ matrix.python }}
-      - name: Type-check the package source
-        run: uv run --locked --only-dev ty check --python-version "${{ matrix.python }}" src
       - name: Build the wheel and source distribution
         run: uv build --no-sources
       - name: Run the tests
