@@ -1,8 +1,10 @@
+import doctest
 import importlib.util
 import inspect
 import pickle
+import sys
 import unittest
-from typing import Any, TypeVar, Union, get_args, get_origin, get_type_hints
+from typing import Annotated, Any, TypeVar, Union, get_args, get_origin, get_type_hints
 
 import ty_extensions
 from ty_extensions import (
@@ -16,6 +18,12 @@ from ty_extensions import (
     Top,
     static_assert,
 )
+
+# Doctest discovers functions and classes defined in the module it scans. Register
+# the public docstrings here to include imported objects and special-form instances.
+__test__ = {
+    name: getattr(ty_extensions, name).__doc__ or "" for name in ty_extensions.__all__
+}
 
 _SPECIAL_FORMS = {
     "AlwaysFalsy": AlwaysFalsy,
@@ -61,6 +69,7 @@ class TyExtensionsTests(unittest.TestCase):
             intersection_single: Intersection[int],
             intersection: Intersection[int, bool],
             intersection_stringified: Intersection["int", "bool"],
+            intersection_duplicate: Intersection["int", int],
             negation: Not[int],
             top: Top[list[Any]],
             bottom: Bottom[list[Any]],
@@ -101,6 +110,9 @@ class TyExtensionsTests(unittest.TestCase):
                 repr(hints["intersection_stringified"]),
                 "ty_extensions.Intersection[int, bool]",
             )
+
+        with self.subTest('Intersection["int", int]'):
+            self.assertEqual(get_args(hints["intersection_duplicate"]), (int,))
 
         with self.subTest("Not[int]"):
             self.assertIs(get_origin(hints["negation"]), Not)
@@ -186,6 +198,59 @@ class TyExtensionsTests(unittest.TestCase):
                 with self.assertRaises(TypeError):
                     specialized[str]
 
+    def test_intersection_normalizes_direct_operands(self) -> None:
+        nested = Intersection[Intersection[str, int], bool, str]
+        flat = Intersection[str, int, bool]
+        self.assertIs(get_origin(nested), Intersection)
+        self.assertEqual(get_args(nested), (str, int, bool))
+        self.assertEqual(nested, flat)
+        self.assertEqual(hash(nested), hash(flat))
+
+    def test_intersection_equality_ignores_operand_order(self) -> None:
+        str_first = Intersection[str, int]
+        int_first = Intersection[int, str]
+        self.assertEqual(str_first, int_first)
+        self.assertEqual(hash(str_first), hash(int_first))
+        self.assertEqual(get_args(str_first), (str, int))
+        self.assertEqual(get_args(int_first), (int, str))
+
+    def test_intersection_normalizes_after_specialization(self) -> None:
+        T = TypeVar("T")
+        self.assertEqual(get_args(Intersection[T, int][int]), (int,))
+        self.assertEqual(
+            get_args(Intersection[T, bool][Intersection[str, int]]), (str, int, bool)
+        )
+
+    def test_intersection_equality_respects_type_parameter_order(self) -> None:
+        T, U = TypeVar("T"), TypeVar("U")
+        list_first = Intersection[list[T], set[U]]
+        set_first = Intersection[set[U], list[T]]
+        self.assertNotEqual(list_first, set_first)
+        self.assertEqual(get_args(list_first[int, str]), (list[int], set[str]))
+        self.assertEqual(get_args(set_first[int, str]), (set[int], list[str]))
+        self.assertEqual(Intersection[list[T], set[T]], Intersection[set[T], list[T]])
+
+    def test_intersection_with_unhashable_operands(self) -> None:
+        operand = Annotated[int, []]
+        intersection = Intersection[operand, str, Annotated[int, []]]
+        self.assertEqual(get_args(intersection), (operand, str))
+        self.assertEqual(intersection, Intersection[str, Annotated[int, []]])
+        self.assertNotEqual(intersection, Intersection[str, Annotated[int, [1]]])
+        with self.assertRaises(TypeError):
+            hash(intersection)
+
+    @unittest.skipUnless(sys.version_info >= (3, 12), "Requires type alias statements")
+    def test_intersection_preserves_named_type_aliases(self) -> None:
+        namespace = {"Intersection": Intersection}
+        exec(
+            "type Alias = Intersection[int, str]\ntype Unresolved = Missing", namespace
+        )
+        alias = namespace["Alias"]
+        unresolved = namespace["Unresolved"]
+        self.assertEqual(
+            get_args(Intersection[alias, unresolved, bool]), (alias, unresolved, bool)
+        )
+
     def test_subscripted_special_form_equality_and_hashing(self) -> None:
         self.assertEqual(Intersection[int], Intersection[(int,)])
         self.assertEqual(hash(Intersection[int]), hash(Intersection[(int,)]))
@@ -221,11 +286,17 @@ class TyExtensionsTests(unittest.TestCase):
                     self.assertIs(restored, special_form)
 
     def test_subscripted_special_form_pickle_round_trip(self) -> None:
-        for special_form in (Intersection[()], *_SUBSCRIPTED_SPECIAL_FORMS):
+        for special_form in (
+            Intersection[()],
+            Intersection[int, int],
+            Intersection[Intersection[str, int], str],
+            *_SUBSCRIPTED_SPECIAL_FORMS,
+        ):
             for protocol in range(pickle.HIGHEST_PROTOCOL + 1):
                 with self.subTest(special_form=special_form, protocol=protocol):
                     restored = pickle.loads(pickle.dumps(special_form, protocol))
                     self.assertEqual(restored, special_form)
+                    self.assertEqual(get_args(restored), get_args(special_form))
 
     def test_aliases(self) -> None:
         self.assertIs(JustFloat, float)
@@ -235,3 +306,15 @@ class TyExtensionsTests(unittest.TestCase):
         self.assertIsNone(static_assert(True))
         with self.assertRaisesRegex(AssertionError, "^message$"):
             static_assert(False, "message")
+
+
+def load_tests(
+    _loader: unittest.TestLoader, tests: unittest.TestSuite, _pattern: str | None
+) -> unittest.TestSuite:
+    """Add the public docstring examples to the unittest suite on Python 3.12+.
+
+    The `Intersection` docstring includes a `type` statement.
+    """
+    if sys.version_info >= (3, 12):
+        tests.addTests(doctest.DocTestSuite())
+    return tests

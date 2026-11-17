@@ -83,6 +83,57 @@ class _TySpecialForm:
         return _getitem(_Union, (other, self))
 
 
+class _IntersectionGenericAlias(_GenericAlias, _root=True):
+    def __init__(
+        self, origin: _TySpecialForm, args: _Iterable[object], **kwargs: _Any
+    ) -> None:
+        # Specialization and forward-reference resolution can introduce nested intersections
+        # or duplicate operands. _GenericAlias.copy_with rebuilds the alias through this
+        # constructor, so normalize the operands here.
+        flattened: list[object] = []
+        for arg in args:
+            if isinstance(arg, _IntersectionGenericAlias):
+                flattened.extend(arg.__args__)
+            else:
+                flattened.append(arg)
+
+        # Use the fast dictionary path for the common case of all hashable operands.
+        # If any operand is unhashable, deduplicate the full list using slower equality
+        # scans. For example, Annotated[int, []] is unhashable because its metadata
+        # contains a list. Both paths keep the first occurrence of each operand, as
+        # does the _deduplicate helper used by typing.Literal in Python 3.15.
+        # https://github.com/python/cpython/blob/v3.15.1/Lib/typing.py#L366-L378
+        try:
+            unique_args = tuple(dict.fromkeys(flattened))
+        except TypeError:
+            unique_items: list[object] = []
+            for item in flattened:
+                if item not in unique_items:
+                    unique_items.append(item)
+            unique_args = tuple(unique_items)
+
+        super().__init__(origin, unique_args, **kwargs)
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, _IntersectionGenericAlias):
+            return NotImplemented
+        # Equal aliases can share a cached specialization. Compare __parameters__ in
+        # order so each supplied argument binds to the same parameter on a cache hit.
+        if self.__parameters__ != other.__parameters__:
+            return False
+        try:
+            return set(self.__args__) == set(other.__args__)
+        except TypeError:
+            # Deduplication at construction makes equal lengths and membership
+            # sufficient for order-insensitive comparison.
+            return len(self.__args__) == len(other.__args__) and all(
+                arg in other.__args__ for arg in self.__args__
+            )
+
+    def __hash__(self) -> int:
+        return hash((frozenset(self.__args__), self.__parameters__))
+
+
 @_TySpecialForm
 def Intersection(self: _TySpecialForm, parameters: object) -> _GenericAlias:
     """
@@ -108,12 +159,32 @@ def Intersection(self: _TySpecialForm, parameters: object) -> _GenericAlias:
     when displaying intersection types. While the experimental syntax will raise an exception in
     runtime contexts or in cases where an annotation expression could be evaluated, however,
     `Intersection[]` can be used in arbitrary contexts if the `ty-extensions` package is installed.
+
+    Nested intersections are flattened at runtime, and duplicate operands are removed using
+    runtime equality, keeping the first occurrence of each. A named alias created using the
+    `type` statement is always kept as an operand. Intersections are unordered types, so
+    nongeneric intersections always compare equal at runtime when they have the same
+    operands:
+
+    ```pycon
+    >>> from ty_extensions import Intersection
+    >>> Intersection[Intersection[str, int], str]
+    ty_extensions.Intersection[str, int]
+    >>> type Alias = Intersection[str, int]  # Python 3.12+
+    >>> Intersection[Alias, str]
+    ty_extensions.Intersection[Alias, str]
+    >>> Intersection[int, str] == Intersection[str, int]
+    True
+    >>> hash(Intersection[int, str]) == hash(Intersection[str, int])
+    True
+
+    ```
     """
     if not isinstance(parameters, tuple):
         parameters = (parameters,)
     message = f"{self} arguments must be types."
     items = tuple(_type_check(item, message) for item in parameters)
-    return _GenericAlias(self, items)
+    return _IntersectionGenericAlias(self, items)
 
 
 @_TySpecialForm
