@@ -1,6 +1,6 @@
 [project]
 name = "ty-extensions"
-version = "0.2.0"
+version = "0.3.0"
 description = "Runtime support for experimental type system features supported by ty"
 authors = [{ name = "Astral Software Inc.", email = "hey@astral.sh" }]
 readme = "README.md"
