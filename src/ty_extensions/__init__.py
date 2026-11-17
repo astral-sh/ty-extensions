@@ -2,12 +2,16 @@
 
 import sys as _sys
 from collections.abc import Iterable as _Iterable
+from operator import getitem as _getitem
+from types import FunctionType as _FunctionType
 from typing import Any as _Any
 from typing import ClassVar as _ClassVar
 from typing import LiteralString as _LiteralString
+from typing import Never as _Never
 from typing import Protocol as _Protocol
 from typing import Self as _Self
-from typing import _GenericAlias, _SpecialForm, _type_check
+from typing import Union as _Union
+from typing import _GenericAlias, _tp_cache, _type_check
 
 __all__ = [
     "AlwaysFalsy",
@@ -35,10 +39,45 @@ def static_assert(condition: object, msg: _LiteralString | None = None) -> None:
         raise AssertionError(msg)
 
 
-# Like typing_extensions, subclass typing._SpecialForm to customize the repr.
-class _TySpecialForm(_SpecialForm, _root=True):
+# Evaluating Not[AlwaysTruthy] passes AlwaysTruthy to typing._type_check,
+# which rejects instances of custom typing._SpecialForm subclasses. Use a
+# standalone class, as typing_extensions does for its Self and Never backports.
+class _TySpecialForm:
+    __iter__ = None
+
+    def __init__(self, getitem: _FunctionType) -> None:
+        self.__name__ = getitem.__name__
+        self.__qualname__ = getitem.__qualname__
+        self.__doc__ = getitem.__doc__
+        self._getitem = getitem
+
+    @_tp_cache
+    def __getitem__(self, parameters: object) -> _GenericAlias:
+        return self._getitem(self, parameters)
+
     def __repr__(self) -> str:
         return f"ty_extensions.{self.__name__}"
+
+    def __reduce__(self) -> str:
+        return self.__name__
+
+    def __call__(self, *args: object, **kwargs: object) -> _Never:
+        raise TypeError(f"Cannot instantiate {self!r}")
+
+    def __mro_entries__(self, bases: tuple[object, ...]) -> _Never:
+        raise TypeError(f"Cannot subclass {self!r}")
+
+    def __instancecheck__(self, instance: object) -> _Never:
+        raise TypeError(f"{self} cannot be used with isinstance()")
+
+    def __subclasscheck__(self, subclass: type) -> _Never:
+        raise TypeError(f"{self} cannot be used with issubclass()")
+
+    def __or__(self, other: object) -> _Any:
+        return _getitem(_Union, (self, other))
+
+    def __ror__(self, other: object) -> _Any:
+        return _getitem(_Union, (other, self))
 
 
 @_TySpecialForm
@@ -151,39 +190,41 @@ def Bottom(self: _TySpecialForm, parameters: object) -> _GenericAlias:
     return _GenericAlias(self, (item,))
 
 
-AlwaysTruthy = _Any
-"""
-`AlwaysTruthy` represents the set of all objects that always evaluate to `True` in a boolean
-context.
+@_TySpecialForm
+def AlwaysTruthy(self: _TySpecialForm, parameters: object) -> _Never:
+    """
+    `AlwaysTruthy` represents the set of all objects that always evaluate to `True` in a boolean
+    context.
 
-`AlwaysTruthy` is inhabited by singleton objects such as `True` and `...`, as well as truthy
-literal strings, integers and bytestrings. It can also be inhabited by instances of classes
-with `__bool__` methods returning `Literal[True]`.
+    `AlwaysTruthy` is inhabited by singleton objects such as `True` and `...`, as well as truthy
+    literal strings, integers and bytestrings. It can also be inhabited by instances of classes
+    with `__bool__` methods returning `Literal[True]`.
 
-In practice, most Python objects inhabit neither `AlwaysTruthy` nor `AlwaysFalsy`, since
-their boolean evaluation may be uncertain or depend on runtime state. For example, although
-an instance of *exactly* `object` is always truthy, a variable annotated as having type
-`object` could also be an instance of an arbitrary subclass of `object` that is always falsy.
-This means that the boolean evaluation of a variable inferred as `object` is uncertain, so
-`object` is not a subtype of `AlwaysTruthy`.
+    In practice, most Python objects inhabit neither `AlwaysTruthy` nor `AlwaysFalsy`, since their
+    boolean evaluation may be uncertain or depend on runtime state. For example, although an
+    instance of *exactly* `object` is always truthy, a variable annotated as having type `object`
+    could also be an instance of an arbitrary subclass of `object` that is always falsy. This means
+    that the boolean evaluation of a variable inferred as `object` is uncertain, so `object` is
+    not a subtype of `AlwaysTruthy`.
+    """
+    raise TypeError(f"{self} is not subscriptable")
 
-At runtime, `AlwaysTruthy` is an alias for `typing.Any`.
-"""
 
-AlwaysFalsy = _Any
-"""
-`AlwaysFalsy` represents the set of all objects that always evaluate to `False` in a boolean
-context.
+@_TySpecialForm
+def AlwaysFalsy(self: _TySpecialForm, parameters: object) -> _Never:
+    """
+    `AlwaysFalsy` represents the set of all objects that always evaluate to `False` in a boolean
+    context.
 
-`AlwaysFalsy` is inhabited by singleton objects such as `False` and `None`, as well as the
-literals `""`, `b""` and `0`. It can also be inhabited by instances of classes with `__bool__`
-methods returning `Literal[False]`.
+    `AlwaysFalsy` is inhabited by singleton objects such as `False` and `None`, as well as the
+    literals `""`, `b""` and `0`. It can also be inhabited by instances of classes with `__bool__`
+    methods returning `Literal[False]`.
 
-In practice, however, most Python objects inhabit neither `AlwaysTruthy` nor `AlwaysFalsy`,
-since their boolean evaluation may be uncertain or depend on runtime state.
+    In practice, however, most Python objects inhabit neither `AlwaysTruthy` nor `AlwaysFalsy`,
+    since their boolean evaluation may be uncertain or depend on runtime state.
+    """
+    raise TypeError(f"{self} is not subscriptable")
 
-At runtime, `AlwaysFalsy` is an alias for `typing.Any`.
-"""
 
 JustFloat = float
 """

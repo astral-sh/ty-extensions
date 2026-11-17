@@ -1,4 +1,5 @@
 import importlib.util
+import inspect
 import unittest
 from typing import Any, get_args, get_origin, get_type_hints
 
@@ -38,7 +39,7 @@ class TyExtensionsTests(unittest.TestCase):
             top: Top[list[Any]],
             bottom: Bottom[list[Any]],
             always_truthy: AlwaysTruthy,
-            always_falsy: AlwaysFalsy,
+            always_falsy: "AlwaysFalsy",
         ) -> None:
             pass
 
@@ -90,6 +91,33 @@ class TyExtensionsTests(unittest.TestCase):
             self.assertEqual(
                 repr(hints["bottom"]), "ty_extensions.Bottom[list[typing.Any]]"
             )
+
+        with self.subTest("AlwaysTruthy"):
+            self.assertIs(hints["always_truthy"], AlwaysTruthy)
+
+        with self.subTest("AlwaysFalsy"):
+            self.assertIs(hints["always_falsy"], AlwaysFalsy)
+
+    def test_truthiness_special_forms(self) -> None:
+        for name, special_form in (
+            ("AlwaysTruthy", AlwaysTruthy),
+            ("AlwaysFalsy", AlwaysFalsy),
+        ):
+            with self.subTest(name):
+                self.assertEqual(repr(special_form), f"ty_extensions.{name}")
+                self.assertIn(name, inspect.getdoc(special_form) or "")
+                with self.assertRaisesRegex(
+                    TypeError, rf"^ty_extensions\.{name} is not subscriptable$"
+                ):
+                    special_form[int]
+
+    def test_truthiness_special_forms_as_type_arguments(self) -> None:
+        self.assertEqual(
+            get_args(Intersection[bool | None, AlwaysTruthy]),
+            (bool | None, AlwaysTruthy),
+        )
+        self.assertEqual(get_args(int | AlwaysFalsy), (int, AlwaysFalsy))
+        self.assertEqual(get_args(AlwaysFalsy | int), (AlwaysFalsy, int))
 
     def test_single_argument_special_forms_reject_multiple_arguments(self) -> None:
         for special_form in (Bottom, Not, Top):
