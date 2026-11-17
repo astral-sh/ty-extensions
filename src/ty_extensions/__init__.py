@@ -51,6 +51,9 @@ class _TySpecialForm:
         self.__doc__ = getitem.__doc__
         self._getitem = getitem
 
+    def __init_subclass__(cls) -> _Never:
+        raise TypeError("Cannot subclass ty-extensions special form classes")
+
     @_tp_cache
     def __getitem__(self, parameters: object) -> _GenericAlias:
         return self._getitem(self, parameters)
