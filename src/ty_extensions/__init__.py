@@ -10,16 +10,12 @@ uv add ty-extensions
 ```
 """
 
-import sys as _sys
 from collections.abc import Iterable as _Iterable
 from operator import getitem as _getitem
 from types import FunctionType as _FunctionType
 from typing import Any as _Any
-from typing import ClassVar as _ClassVar
 from typing import LiteralString as _LiteralString
 from typing import Never as _Never
-from typing import Protocol as _Protocol
-from typing import Self as _Self
 from typing import Union as _Union
 from typing import _GenericAlias, _tp_cache, _type_check
 
@@ -30,7 +26,6 @@ __all__ = [
     "Intersection",
     "JustComplex",
     "JustFloat",
-    "NamedTupleLike",
     "Not",
     "Top",
     "static_assert",
@@ -341,24 +336,3 @@ At runtime, `JustComplex` is an alias for the built-in `complex` class.
 
 [type-system special case]: https://typing.python.org/en/latest/spec/special-types.html#special-cases-for-float-and-complex
 """
-
-
-class NamedTupleLike(_Protocol):
-    """
-    A protocol describing an interface that should be satisfied by all named tuples
-    created using `typing.NamedTuple` or `collections.namedtuple`.
-    """
-
-    _fields: _ClassVar[tuple[_Any, ...]]
-    _field_defaults: _ClassVar[dict[str, _Any]]
-
-    @classmethod
-    def _make(cls, iterable: _Iterable[_Any]) -> _Self: ...
-
-    def _asdict(self, /) -> dict[str, _Any]: ...
-
-    def _replace(self, *args: _Any, **kwargs: _Any) -> _Self: ...
-
-    if _sys.version_info >= (3, 13):
-
-        def __replace__(self, *args: _Any, **kwargs: _Any) -> _Self: ...
